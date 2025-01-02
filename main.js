@@ -1,28 +1,52 @@
+// main.js
 async function translate(text, from, to, options) {
-    const { config, utils } = options;
-    const { tauriFetch: fetch } = utils;
-    let { requestPath: url } = config;
-    let plain_text = text.replaceAll("/", "@@");
-    let encode_text = encodeURIComponent(plain_text);
-    if (url === undefined || url.length === 0) {
-        url = "lingva.pot-app.com"
-    }
-    if (!url.startsWith("http")) {
-        url = `https://${url}`;
-    }
-    const res = await fetch(`${url}/api/v1/${from}/${to}/${encode_text}`, {
-        method: 'GET',
-    });
+    const { config, detect, setResult, utils } = options;
+    const { http } = utils;
+    const { fetch } = http;
 
-    if (res.ok) {
-        let result = res.data;
-        const { translation } = result;
-        if (translation) {
-            return translation.replaceAll("@@", "/");;
+    let { apiKey, apiUrl } = config;
+
+    if (!apiUrl || apiUrl.length === 0) {
+        throw 'API URL is not configured.';
+    }
+
+    if (!apiKey || apiKey.length === 0) {
+        throw 'API Key is not configured.';
+    }
+
+    if (!apiUrl.startsWith("http")) {
+        apiUrl = `https://${apiUrl}`;
+    }
+
+    const payload = {
+        text,
+        source_language: from,
+        target_language: to
+    };
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+
+    try {
+        const response = await fetch(`${apiUrl}/translate`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const result = await response.data;
+            if (result.translation) {
+                return result.translation;
+            } else {
+                throw `Translation failed: ${JSON.stringify(result)}`;
+            }
         } else {
-            throw JSON.stringify(result.trim());
+            throw `Http Request Error\nHttp Status: ${response.status}\n${JSON.stringify(response.data)}`;
         }
-    } else {
-        throw `Http Request Error\nHttp Status: ${res.status}\n${JSON.stringify(res.data)}`;
+    } catch (error) {
+        throw `Error during translation: ${error}`;
     }
 }
